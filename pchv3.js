@@ -18,16 +18,19 @@ switch (msg.topic) {
       topic: 'Dist',
     }, {
       payload: arr[3] == 1,  // ПЧ авария
-      topic: 'Error',
+      topic: 'PchError',
     }, {
       payload: arr[4] == 1,  // ПЧ предупреждение
       topic: 'Alert',
+    }, {
+      payload: arr.join(''),  // Статус, для вывода состояния в статусе ноды
+      topic: 'status',
     }];
   break;
 
   case 'setFreq':  // пишем новую частоту в ПЧ
     mess[0] = {
-      payload: context.get('freq'),
+      payload: msg.payload * 327,
       topic: 'writeVar',
       reg: 50009,
       signal: msg.topic,
@@ -50,10 +53,6 @@ switch (msg.topic) {
       reg: 49999,
       signal: msg.topic,
     };
-  break;
-
-  case 'changeFreq':  // при изменении ползунка, не пишем сразу новое значение
-    context.set('freq', msg.payload * 327);
   break;
 
   default: // передаем остальные сообщения выше, для обработки (errorWrite, error, okWrite, linkOn и неизвестные)

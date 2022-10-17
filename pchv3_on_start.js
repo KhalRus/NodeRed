@@ -1,5 +1,3 @@
-context.set('freq', 400);
-
 let mess1 = {
   topic: 'initModbusRead',
   addres: env.get('modbus_addr'),
