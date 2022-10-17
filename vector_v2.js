@@ -29,14 +29,14 @@ switch (msg.topic) {
     }
   break
 
-  case 'error':
+  case 'linkError':
     if (msg.payload > 0) {   // кол-во ошибок больше 0
       node.warn(`${dev_name}. Errors count: ${msg.payload}`);
       node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` });
+
     } else if (msg.payload == 0) {
       node.status({ fill: 'green', shape: 'dot', text: `connected` });
     }
   break;
 };
-
 return mess;

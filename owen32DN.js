@@ -20,7 +20,7 @@ if ( context.get('signalsRead').includes(msg.topic) ) { // пришел сигн
     node.status({ fill: 'red', shape: 'dot', text: 'disconnected' });
   }
 
-} else if (msg.topic == 'error') {
+} else if (msg.topic == 'linkError') {
   if (msg.payload > 0) {   // кол-во ошибок больше 0
     node.warn(`${dev_name}. Errors count: ${msg.payload}`);
     node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` });

@@ -223,7 +223,7 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
             context.set('errorsCount', 0);                   // обнуляем ошибки чтения
             if (mess[3] === null) mess[3] = [];              // если пусто, то делаем массив, для универсальности
             mess[3].push({                                   // сообщение, что кол-во ошибок 0 - для обновления статуса ноды
-              topic: 'error',
+              topic: 'linkError',
               payload: 0,
             });
           }
@@ -243,7 +243,7 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
       let numErr = context.get('errorsCount') + 1;
       if (numErr < modbus.maxErrors) {
         mess[3] = {
-          topic: 'error',
+          topic: 'linkError',
           payload: numErr,
         };
         context.set('errorsCount', numErr);

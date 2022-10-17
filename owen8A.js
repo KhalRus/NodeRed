@@ -14,9 +14,14 @@ if (msg.topic == 'linkOn') {
     node.status({ fill: 'red', shape: 'dot', text: 'disconnected' });
   }
 
-} else if (msg.topic == 'error') {
-  node.warn(`${dev_name}. Errors count: ${msg.payload}`);
-  node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` });
+} else if (msg.topic == 'linkError') {
+  if (msg.payload > 0) {   // кол-во ошибок больше 0
+    node.warn(`${dev_name}. Errors count: ${msg.payload}`);
+    node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` });
+
+  } else if (msg.payload == 0) {
+    node.status({ fill: 'green', shape: 'dot', text: `connected` });
+  }
 
 } else if (context.get('signals').includes(msg.topic)) {  // название сигнала содержится в массиве сигналов
   mess[1] = {
