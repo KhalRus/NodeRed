@@ -2,7 +2,10 @@ const INFO = 0;  // типы сообщений в логе
 const ALERT = 1;
 const ERROR = 2;
 
-let mess = [null, []];  // 0 - PCh, 1 - MQTT
+let mess = [null, []];  // 0 - команды управления на ПЧ, 1 - сообщения в лог (журнал)
+const MS_TU = 0;
+const MS_LOG = 1;
+
 let tag = context.get('tag');
 let topic = msg.topic.startsWith(tag) ? msg.topic.slice(context.get('tagLength')) : msg.topic;  // удаляем путь из топика, от последней /
 let val = msg.payload;
@@ -12,14 +15,16 @@ switch (topic) {
   case 'pin2':
     context.set(topic, +val);
     if ( (val <= env.get('min_P_in')) && context.get('pumpOn') ) {  // мин. давление на входе, останавливаем насос
-      mess[0] = {
+      mess[MS_TU] = {
         topic: 'tuStop',
         payload: true,
       };
 
-      mess[1].push({
-        type: ERROR,
-        payload: `Защита! Стоп по минимальному давлению на входе!`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Защита! Стоп по минимальному давлению на входе!`,
+          type: ERROR,
+        }
       });
     }
   break;
@@ -28,14 +33,16 @@ switch (topic) {
   case 'pout2':
     context.set(topic, +val);
     if ((val >= env.get('max_P_out')) && context.get('pumpOn')) {  // макс. давление на выходе, останавливаем насос
-      mess[0] = {
+      mess[MS_TU] = {
         topic: 'tuStop',
         payload: true,
       };
 
-      mess[1].push({
-        type: ERROR,
-        payload: `Защита! Стоп по максимальному давлению на выходе!`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Защита! Стоп по максимальному давлению на выходе!`,
+          type: ERROR,
+        }
       });
     }
   break;
@@ -43,71 +50,85 @@ switch (topic) {
   case 'temp':  // обработка температуры насоса
     context.set(topic, +val);
     if ((val >= env.get('max_Temp')) && context.get('pumpOn')) {  // макс. температура, останавливаем насос
-      mess[0] = {
+      mess[MS_TU] = {
         topic: 'tuStop',
         payload: true,
       };
 
-      mess[1].push({
-        type: ERROR,
-        payload: `Защита! Стоп по аварийной температуре!`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Защита! Стоп по аварийной температуре!`,
+          type: ERROR,
+        }
       });
     }
   break;
 
   case 'tuStart':  // команда на включение насоса
-    mess[1].push({
-      type: INFO,
-      payload: `Подана команда на включение насоса`,
+    mess[MS_LOG].push({
+      payload: {
+        str: `Подана команда на включение насоса`,
+        type: INFO,
+      }
     });
 
     if (!context.get('pumpOn') && context.get('linkOn') && (context.get('temp') < env.get('max_Temp')) && (context.get('pin1') > env.get('min_P_in')) &&
      (context.get('pin2') > env.get('min_P_in')) && !context.get('errorNA')) {  // условия пуска насоса
-      mess[0] = {
+      mess[MS_TU] = {
         topic: 'tuStart',
         payload: true,
       };
 
     } else {
-      mess[1].push({
-        type: ALERT,
-        payload: `Условия для пуска насоса не соблюдены`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Условия для пуска насоса не соблюдены`,
+          type: ALERT,
+        }
       });
     }
   break;
 
   case 'tuStop':  // команда на стоп насоса
-    mess[1].push({
-      type: INFO,
-      payload: `Подана команда на стоп насоса`,
+    mess[MS_LOG].push({
+      payload: {
+        str: `Подана команда на стоп насоса`,
+        type: INFO,
+      }
     });
 
     if (context.get('pumpOn') && context.get('linkOn')) {
-      mess[0] = {
+      mess[MS_TU] = {
         topic: 'tuStop',
         payload: true,
       };
 
     } else {
-      mess[1].push({
-        type: ALERT,
-        payload: `Условия для остановки насоса не соблюдены`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Условия для остановки насоса не соблюдены`,
+          type: ALERT,
+        }
       });
     }
   break;
 
   case 'linkOn':
     if (val) {
-      mess[1].push({
-        type: INFO,
-        payload: `Связь с насосом (ПЧ) установлена`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Связь с насосом (ПЧ) установлена`,
+          type: INFO,
+        }
       });
       node.status({ fill: 'green', shape: 'dot', text: `status: ${context.get('status')}` });
 
     } else {
-      mess[1].push({
-        type: ERROR,
-        payload: `Связь с насосом (ПЧ) отсутствует`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Связь с насосом (ПЧ) отсутствует`,
+          type: ERROR,
+        }
       });
       node.status({ fill: 'red', shape: 'dot', text: 'disconnected' });
     }
@@ -123,12 +144,14 @@ switch (topic) {
   break;
 
   case 'setFreq':
-    mess[1].push({
-      type: INFO,
-      payload: `Подана команда на изменение частоты насоса - ${context.get('freq')} Hz`,
+    mess[MS_LOG].push({
+      payload: {
+        str: `Подана команда на изменение частоты насоса - ${context.get('freq')} Hz`,
+        type: INFO,
+      }
     });
 
-    mess[0] = {
+    mess[MS_TU] = {
       topic: 'setFreq',
       payload: context.get('freq'),
     };
@@ -138,15 +161,19 @@ switch (topic) {
     if (context.get('pumpOn') != val) {  // значение изменилось
       context.set('pumpOn', val);
       if (val) {
-        mess[1].push({
-          type: INFO,
-          payload: `Насос включен`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Насос включен`,
+            type: INFO,
+          }
         });
 
       } else {
-        mess[1].push({
-          type: INFO,
-          payload: `Насос отключен`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Насос отключен`,
+            type: INFO,
+          }
         });
       }
     }
@@ -156,15 +183,19 @@ switch (topic) {
     if (context.get('Dist') != val) {
       context.set('Dist', val);
       if (val) {
-        mess[1].push({
-          type: INFO,
-          payload: `Насос в дистанционном режиме`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Насос в дистанционном режиме`,
+            type: INFO,
+          }
         });
 
       } else {
-        mess[1].push({
-          type: INFO,
-          payload: `Насос в местном режиме`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Насос в местном режиме`,
+            type: INFO,
+          }
         });
       }
     }
@@ -174,15 +205,19 @@ switch (topic) {
     if (context.get('errorNA') != val) {
       context.set('errorNA', val);
       if (val) {
-        mess[1].push({
-          type: ERROR,
-          payload: `Авария насоса (ПЧ)!`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Авария насоса (ПЧ)!`,
+            type: ERROR,
+          }
         });
 
       } else {
-        mess[1].push({
-          type: INFO,
-          payload: `Аварии насоса (ПЧ) отсутствуют`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Аварии насоса (ПЧ) отсутствуют`,
+            type: INFO,
+          }
         });
       }
     }
@@ -192,15 +227,19 @@ switch (topic) {
     if (context.get('Alert') != val) {
       context.set('Alert', val);
       if (val) {
-        mess[1].push({
-          type: ERROR,
-          payload: `Сбой (предупреждение) в работе насоса (ПЧ)`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Сбой (предупреждение) в работе насоса (ПЧ)`,
+            type: ERROR,
+          }
         });
 
       } else {
-        mess[1].push({
-          type: INFO,
-          payload: `Предупреждения по насосу (ПЧ) отсутствуют`,
+        mess[MS_LOG].push({
+          payload: {
+            str: `Предупреждения по насосу (ПЧ) отсутствуют`,
+            type: INFO,
+          }
         });
       }
     }
@@ -210,30 +249,34 @@ switch (topic) {
     if (val == 0) {  // ошибок нет
       node.status({ fill: 'green', shape: 'dot', text: `status: ${context.get('status')}` });
     } else {
-      mess[1].push({
-        type: ALERT,
-        payload: `Ошибка чтения данных насоса (ПЧ). Кол-во ошибок: ${val}`,
+      mess[MS_LOG].push({
+        payload: {
+          str: `Ошибка чтения данных насоса (ПЧ). Кол-во ошибок: ${val}`,
+          type: ALERT,
+        }
       });
       node.status({ fill: 'yellow', shape: 'ring', text: `err: ${val}` });
     }
     break;
 
   case 'errorWrite':
-    mess[1].push({
-      type: ALERT,
-      payload: `Ошибка записи команды насоса (ПЧ) - ${val}`,
+    mess[MS_LOG].push({
+      payload: {
+        str: `Ошибка записи команды насоса (ПЧ) - ${val}`,
+        type: ALERT,
+      }
     });
     break;
 }
 
-if (mess[1].length == 0) { // нет сообщений MQTT для передачи
-  mess[1] = null;
+if (mess[MS_LOG].length == 0) { // нет сообщений MQTT для передачи
+  mess[MS_LOG] = null;
 
 } else { // добавляем в сообщения MQTT метку времени и топик (одно и тоже для всех сообщений, добавляем здесь, чтобы не дублировать это везде)
-  for (let i = 0; i < mess[1].length; i++) {
-    mess[1][i].time = Date.now();
-    mess[1][i].topic = `${tag}/log`;
-  }
+  mess[MS_LOG].forEach(el => {
+    el.topic = `${tag}/log`;
+    el.payload.time = Date.now();
+  });
 }
 
 return mess;
