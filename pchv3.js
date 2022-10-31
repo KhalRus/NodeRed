@@ -1,16 +1,18 @@
-let mess = [null, null]; // выходы функции, null - ничего не отправляется на выход
+let mess = [null, null]; // выходы функции, 0 - ТУ в модбас, 1 - сообщение в поток выше (PUMP)
+const MS_WRITE = 0;
+const MS_FLOW = 1;
 
 switch (msg.topic) {
   case 'freq':
-    mess[1] = {
+    mess[MS_FLOW] = {
       payload: Math.round(msg.payload / 327),  // преобразование (значение от 0 до 16384 - от 0 до 50 герц)
       topic: 'freq',
     };
-  break;
+    break;
 
   case 'status':  // раскладка статуса и передача сообщений выше
     let arr = msg.payload;
-    mess[1] = [{
+    mess[MS_FLOW] = [{
       payload: arr[11] == 1,  // ПЧ включен
       topic: 'On',
     }, {
@@ -21,15 +23,15 @@ switch (msg.topic) {
       topic: 'PchError',
     }, {
       payload: arr[4] == 1,  // ПЧ предупреждение
-      topic: 'Alert',
+      topic: 'PchAlert',
     }, {
-      payload: arr.join(''),  // Статус, для вывода состояния в статусе ноды
+      payload: arr.reverse().join(''),  // Статус, для вывода состояния в статусе ноды
       topic: 'status',
     }];
-  break;
+    break;
 
   case 'setFreq':  // пишем новую частоту в ПЧ
-    mess[0] = {
+    mess[MS_WRITE] = {
       payload: msg.payload * 327,
       topic: 'writeVar',
       reg: 50009,
@@ -38,7 +40,7 @@ switch (msg.topic) {
   break;
 
   case 'tuStart':  // команда на пуск в ПЧ
-    mess[0] = {
+    mess[MS_WRITE] = {
       payload: 1148,
       topic: 'writeVar',
       reg: 49999,
@@ -47,7 +49,7 @@ switch (msg.topic) {
   break;
 
   case 'tuStop':  // команда на стоп в ПЧ
-    mess[0] = {
+    mess[MS_WRITE] = {
       payload: 1080,
       topic: 'writeVar',
       reg: 49999,
@@ -55,11 +57,8 @@ switch (msg.topic) {
     };
   break;
 
-  default: // передаем остальные сообщения выше, для обработки (errorWrite, error, okWrite, linkOn и неизвестные)
-    mess[1] = {
-      payload: msg.payload,
-      topic: msg.topic,
-    };
+  default: // передаем остальные сообщения выше, для обработки (errorWrite, errorUnknown, okWrite, linkOn и неизвестные)
+    mess[MS_FLOW] = msg;
 }
 
 return mess;
