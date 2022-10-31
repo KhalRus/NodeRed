@@ -1,35 +1,74 @@
-const dev_name = env.get('dev_name');
-const place = env.get('place');
-let mess = [null, null]; // выходы функции, null - ничего не отправляется на выход
+const tag = context.get('tag');
+const log = `${tag}log`;
+const INFO = 0;  // типы сообщений в логе
+const ALERT = 1;
+const ERROR = 2;
 
-if ( context.get('signalsRead').includes(msg.topic) ) { // пришел сигнал DI, отправляем в MQTT
-  mess[1] = {
+let mess = [null, null]; // выходы функции, 0 - в модбас, 1 - сообщение в журнал
+const MS_MQTT = 1;
+
+if ( context.get('signalsRead').includes(msg.topic) ) { // пришел сигнал DI, отправляем MQTT сообщение сигнала и в журнал
+  mess[MS_MQTT] = [{
     payload: msg.payload,
-    topic: `${place}/${dev_name}/${msg.topic}`,
-  };
+    topic: `${tag}${msg.topic}`,
+  }, {
+    payload: {
+      str: `Изменился DI: ${msg.topic} - ${msg.payload}`,
+      type: INFO,
+      time: Date.now(),
+    },
+    topic: log,
+  }];
 
 } else if (msg.topic == 'linkOn') {
-  mess[1] = {
+  mess[MS_MQTT] = [{
     payload: msg.payload,
-    topic: `${place}/${dev_name}/linkOn`,
-  };
+    topic: `${tag}linkOn`,
+  }, {
+    payload: {
+      time: Date.now(),
+    },
+    topic: log,
+  }];
 
   if (msg.payload) {
     node.status({ fill: 'green', shape: 'dot', text: 'connected' });
+    mess[MS_MQTT][1].payload.str = 'Модуль на связи!';
+    mess[MS_MQTT][1].payload.type = INFO;
+
   } else {
     node.status({ fill: 'red', shape: 'dot', text: 'disconnected' });
+    mess[MS_MQTT][1].payload.str = 'Связь с модулем потеряна!';
+    mess[MS_MQTT][1].payload.type = ERROR;
   }
 
 } else if (msg.topic == 'linkError') {
+  mess[MS_MQTT] = {
+    payload: {
+      str: `Количество ошибок связи с модулем: ${msg.payload}`,
+      time: Date.now(),
+    },
+    topic: log,
+  };
+
   if (msg.payload > 0) {   // кол-во ошибок больше 0
-    node.warn(`${dev_name}. Errors count: ${msg.payload}`);
+    mess[MS_MQTT].payload.type = ALERT;
     node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` });
 
   } else if (msg.payload == 0) {
+    mess[MS_MQTT].payload.type = INFO;
     node.status({ fill: 'green', shape: 'dot', text: `connected` });
   }
 
 } else {  // не должно быть необработанных сигналов
-  node.warn(`${dev_name} Необработанный топик: ${msg.topic}`);
+  mess[MS_MQTT] = {
+    payload: {
+      str: `Необработанный топик: ${msg.topic} - ${msg.payload}`,
+      time: Date.now(),
+      type: ALERT,
+    },
+    topic: log,
+  };
 }
+
 return mess;

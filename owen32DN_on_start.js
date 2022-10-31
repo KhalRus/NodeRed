@@ -1,6 +1,7 @@
-let signalsRead1 = ['ch_0', 'ch_1', 'ch_2', 'ch_3', 'ch_4', 'ch_5', 'ch_6', 'ch_7', 'ch_8', 'ch_9', 'ch_10', 'ch_11', 'ch_12', 'ch_13', 'ch_14', 'ch_15'].map(st => env.get(st));
-let signalsRead2 = ['ch_16', 'ch_17', 'ch_18', 'ch_19', 'ch_20', 'ch_21', 'ch_22', 'ch_23', 'ch_24', 'ch_25', 'ch_26', 'ch_27', 'ch_28', 'ch_29', 'ch_30', 'ch_31'].map(st => env.get(st));
+let signalsRead1 = ['ch_1', 'ch_2', 'ch_3', 'ch_4', 'ch_5', 'ch_6', 'ch_7', 'ch_8', 'ch_9', 'ch_10', 'ch_11', 'ch_12', 'ch_13', 'ch_14', 'ch_15', 'ch_16'].map(st => env.get(st));
+let signalsRead2 = ['ch_17', 'ch_18', 'ch_19', 'ch_20', 'ch_21', 'ch_22', 'ch_23', 'ch_24', 'ch_25', 'ch_26', 'ch_27', 'ch_28', 'ch_29', 'ch_30', 'ch_31', 'ch_32'].map(st => env.get(st));
 context.set('signalsRead', [].concat(signalsRead1, signalsRead2));
+context.set('tag', `${env.get('place')}/${env.get('dev_name')}/`);
 
 let mess = {
   topic: 'initModbusRead',
@@ -25,4 +26,13 @@ let mess = {
   }],
 };
 
-node.send([mess, null]);
+let logName = {    // Имя устройства в журнале (объект)
+  payload: {
+    str: 'logName',
+    id: env.get('dev_name'),
+    logName: env.get('log_name'),
+  },
+  topic: `${context.get('tag')}log`,
+  retain: true,
+};
+node.send([mess, logName]);
