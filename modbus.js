@@ -6,6 +6,8 @@ function word2ToFloat(w1, w0) {  // 2 word преобразование во flo
 }
 
 function decToBinArr(n, razr = 16) {  // преобразование регистра в массив, по умолчанию 16 бит
+  if (n === null) return Array(razr);
+
   let arr = Array(razr).fill(0, 0, razr);
   razr = 0;
   while (n > 0) {
@@ -18,8 +20,12 @@ function decToBinArr(n, razr = 16) {  // преобразование регис
 const modbus = context.get('modbus');    // объект для хранения настроек modbus
 const objRead = context.get('objRead');  // все переменные для чтения хранятся в объекте objRead, ключ - имя переменной
 
-// 0 - на delay, 1 - modbus Read, 2 - modbus Write, 3 - выход значений в вышестоящий поток
 let mess = [null, null, null, null]; // выходы функции, null - ничего не отправляется на выход
+const MS_DELAY = 0; // 0 - на delay, 1 - modbus Read, 2 - modbus Write, 3 - выход значений в вышестоящий поток
+const MS_READ = 1;
+const MS_WRITE = 2;
+const MS_FLOW = 3;
+
 
 if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // инициализация опроса modbus (если есть сигналы для опроса)
   modbus.addres = msg.addres ?? 1;                            // Значение по умолчанию 1
@@ -46,13 +52,13 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
   }
 
   // запуск первого опроса
-  mess[0] = {
+  mess[MS_DELAY] = {
     payload: 0,
     topic: 'updateAllVars',  // запуск опроса
     delay: msg.startDelay,   // пауза перед первым опросом
   };
 
-} else if (msg.topic == 'initModbusWrite') {          // инициализация записи modbus
+} else if (msg.topic == 'initModbusWrite') {                  // инициализация записи modbus
   modbus.addres = msg.addres ?? 1;                            // Значение по умолчанию 1
   modbus.devname = msg.devname;                               // Значение должно быть обязательно
   modbus.command = msg.command;
@@ -76,13 +82,12 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
         'address': obj.reg,
         'quantity': obj.count,
       },
-      topic: obj.id,
-      dev: modbus.devname,
+      topic: `${modbus.devname}||${obj.id}`,
     });
   }
-  mess[1] = outArr;
+  mess[MS_READ] = outArr;
 
-  mess[0] = {
+  mess[MS_DELAY] = {
     payload: 0,
     topic: 'updateAllVars',  // запуск следующего опроса
     delay: (context.get('linkOn')) ? modbus.pollPeriod : modbus.pollErrPeriod,  // если есть связь задержка опроса короткая, иначе длинная
@@ -93,8 +98,7 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
     let ind = modbus.signals.indexOf(msg.signal);  // индекс в массиве сигналов соответсвует разряду в 2ном представлении
 
     if ((ind == -1) || (msg.signal == 'null')) {  // индекс сигнала не найден или был null
-      node.warn(`${modbus.devname} Неправильная команда ТУ: ${msg.signal}`);
-      mess[3] = {
+      mess[MS_FLOW] = {
         topic: 'errorWrite',
         payload: msg.signal,
       };
@@ -110,7 +114,7 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
     }
 
     if (curBitMask != modbus.bitMask) {  // если битовая маска поменялась
-      mess[2] = {
+      mess[MS_WRITE] = {
         payload: {
           value: modbus.bitMask,
           'fc': modbus.command,
@@ -118,17 +122,14 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
           'address': modbus.reg,
           'quantity': 1,
         },
-        topic: 'varWrited',
-        dev: modbus.devname,
-        signal: msg.signal,
+        topic: `${modbus.devname}||varWrited||${msg.signal}`,
       }
-      node.warn(`${modbus.devname} Подана команда ТУ: ${msg.signal}`);
     } else {
       node.warn(`${modbus.devname} Данный сигнал уже был подан: ${msg.signal}`);
     }
 
   } else if (modbus.type == 'word') {
-    mess[2] = {
+    mess[MS_WRITE] = {
       payload: {
         value: msg.payload,
         'fc': modbus.command,
@@ -136,26 +137,25 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
         'address': msg.reg,
         'quantity': 1,
       },
-      topic: 'varWrited',
-      dev: modbus.devname,
-      signal: msg.signal,
+      topic: `${modbus.devname}||varWrited||${msg.signal}`,
     }
   }
 
-} else if (msg.topic == 'varWrited') {  // ответ модбас после записи переменной modbus
+} else if (msg.topic.startsWith('varWrited')) {  // ответ модбас после записи переменной
+  let signal = msg.topic.slice(11);  // длина 'varWrited||' - 11
   if (msg.error === undefined) {
-    node.warn(`${modbus.devname} Команда ТУ доставлена: ${msg}`);
-    mess[3] = {
+    mess[MS_FLOW] = {
       topic: 'okWrite',
-      payload: msg.signal,
+      payload: signal,
     };
+
   } else {
-    node.warn(`${modbus.devname} Ошибка записи команды: ${msg}`);
-    mess[3] = {
+    mess[MS_FLOW] = {
       topic: 'errorWrite',
-      payload: msg.signal,
+      payload: signal,
     };
   }
+
 } else {  // остальные топики обрабатываем здесь (прочитанные значения и тд.)
   let obj = objRead[msg.topic];
 
@@ -183,13 +183,13 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
 
         case 'bitArrWide':
           if (obj.value != msg.payload[0]) {
-            mess[3] = [];  // пишем в выход сразу
+            mess[MS_FLOW] = [];  // пишем в выход сразу
             let oldVar = decToBinArr(obj.value);
             let newVar = decToBinArr(msg.payload[0]);
 
             for (let i = 0; i < 16; i++) {
-              if (oldVar[i] != newVar[i]) {
-                mess[3].push({
+              if ( (oldVar[i] != newVar[i]) && (obj.signalsArr[i] != 'null') ) {
+                mess[MS_FLOW].push({
                   topic: obj.signalsArr[i],
                   payload: newVar[i] == 1,
                 });
@@ -209,28 +209,31 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
         break;
 
         default:
-          node.warn(`${modbus.devname} Ошибка в типе переменной: ${obj.type}`)
+          mess[MS_FLOW] = {
+            topic: 'errorUnknown',
+            payload: `${modbus.devname} Ошибка в типе переменной: ${obj.type}`,
+          };
         break;
       }
 
       if (outVar.payload !== null) {
-        mess[3] = [outVar];
+        mess[MS_FLOW] = [outVar];
       }
 
       if (obj.first) {                                       // первая переменная, для учета ошибок чтения
         if (context.get('linkOn') === true) {                // связь была и есть (лимит ошибок не превышен, linkOn == true)
           if (context.get('errorsCount') > 0) {              // но несколько раз (или 1) прошли ошибки связи
             context.set('errorsCount', 0);                   // обнуляем ошибки чтения
-            if (mess[3] === null) mess[3] = [];              // если пусто, то делаем массив, для универсальности
-            mess[3].push({                                   // сообщение, что кол-во ошибок 0 - для обновления статуса ноды
+            if (mess[MS_FLOW] === null) mess[MS_FLOW] = [];              // если пусто, то делаем массив, для универсальности
+            mess[MS_FLOW].push({                                   // сообщение, что кол-во ошибок 0 - для обновления статуса ноды
               topic: 'linkError',
               payload: 0,
             });
           }
 
         } else {                                            // если связь восстановилась, то отправляем сообщение
-          if (mess[3] === null) mess[3] = [];               // если пусто, то делаем массив, для универсальности
-          mess[3].push({
+          if (mess[MS_FLOW] === null) mess[MS_FLOW] = [];               // если пусто, то делаем массив, для универсальности
+          mess[MS_FLOW].push({
             topic: 'linkOn',
             payload: true,
           });-
@@ -242,13 +245,14 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
     } else if ( context.get('linkOn') && (obj.first) ) {  // ошибки чтения modbus учитываем для первой переменной и если связь была (лимит ошибок не превышен, linkOn == true)
       let numErr = context.get('errorsCount') + 1;
       if (numErr < modbus.maxErrors) {
-        mess[3] = {
+        mess[MS_FLOW] = {
           topic: 'linkError',
           payload: numErr,
         };
         context.set('errorsCount', numErr);
       } else {
-        mess[3] = {
+        context.set('linkOn', false);
+        mess[MS_FLOW] = {
           topic: 'linkOn',
           payload: false,
         };
@@ -256,7 +260,10 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
     }
 
   } else {
-    node.warn(`${modbus.devname} Необработанный топик: ${msg.topic}`);
+    mess[MS_FLOW] = {
+      topic: 'errorUnknown',
+      payload: `${modbus.devname} Необработанный топик: ${msg.topic}`,
+    };
   }
 }
 
