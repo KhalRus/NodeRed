@@ -1,5 +1,9 @@
+let tag = `${env.get('place')}/${env.get('dev_name')}/`;
+context.set('tag', tag);
+context.set('level', 0);
+
 let mess = {
-  topic: 'initModbus',
+  topic: 'initModbusRead',
   addres: env.get('modbus_addr'),
   pollPeriod: env.get('poll_period(ms)'),
   pollErrPeriod: env.get('poll_err_perd(ms)'),
@@ -19,4 +23,14 @@ let mess = {
   }],
 };
 
-node.send([mess, null]);
+let logName = {    // Имя устройства в журнале (объект)
+  payload: {
+    str: 'logName',
+    id: env.get('dev_name'),
+    logName: env.get('log_name'),
+  },
+  topic: `${tag}log`,
+  retain: true,
+}
+
+node.send([mess, logName]);
