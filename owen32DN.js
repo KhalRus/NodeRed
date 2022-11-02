@@ -1,5 +1,4 @@
-const tag = context.get('tag');
-const log = `${tag}log`;
+const log = context.get('log');
 const INFO = 0;  // типы сообщений в логе
 const ALERT = 1;
 const ERROR = 2;
@@ -7,10 +6,10 @@ const ERROR = 2;
 let mess = [null, null]; // выходы функции, 0 - в модбас, 1 - сообщение в журнал
 const MS_MQTT = 1;
 
-if ( context.get('signalsRead').includes(msg.topic) ) { // пришел сигнал DI, отправляем MQTT сообщение сигнала и в журнал
+if ( context.get('signals').includes(msg.topic) ) { // пришел сигнал DI, отправляем MQTT сообщение сигнала и в журнал
   mess[MS_MQTT] = [{
     payload: msg.payload,
-    topic: `${tag}${msg.topic}`,
+    topic: `${env.get('place')}/${msg.topic}`,
   }, {
     payload: {
       str: `Изменился DI: ${msg.topic} - ${msg.payload}`,
@@ -23,7 +22,7 @@ if ( context.get('signalsRead').includes(msg.topic) ) { // пришел сигн
 } else if (msg.topic == 'linkOn') {
   mess[MS_MQTT] = [{
     payload: msg.payload,
-    topic: `${tag}linkOn`,
+    topic: `${context.get('tag')}linkOn`,
   }, {
     payload: {
       time: Date.now(),
