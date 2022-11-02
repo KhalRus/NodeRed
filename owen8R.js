@@ -5,11 +5,7 @@ const ERROR = 2;
 let mess = [null, null]; // выходы функции, 0 - ТУ в модбас, 1 - сообщение в журнал
 const MS_TU = 0;
 const MS_LOG = 1;
-
-let topic = msg.topic;
-if (topic.startsWith(context.get('tag'))) {
-  topic = msg.topic.slice(context.get('signalLength'));   // только название сигнала без пути
-}
+const topic = msg.topic;
 
 if (topic == 'okWrite') {
   node.status({ fill: 'green', shape: 'dot', text: `ok - ${msg.payload}` });
@@ -37,14 +33,12 @@ if (topic == 'okWrite') {
     },
   };
 
-} else if (topic == 'log') {  // пришло сообщение в журнал, здесь его не обрабатываем
-
 } else {                                                      // остальные сигналы это команды ТУ
   let ind = context.get('signals').indexOf(topic);           // индекс в массиве соответствует регистру COIL
 
-  if ((ind != -1) && (topic != 'null')) {
+  if (ind != -1) {
     mess[MS_TU] = {
-      payload: [(msg.payload === true) || (msg.payload == 'true') || (msg.payload == 1) || (msg.payload == '1')],
+      payload: [(msg.payload === true) || (msg.payload == 'true')],
       topic: 'writeVar',
       reg: ind,
       signal: topic,
@@ -68,7 +62,7 @@ if (topic == 'okWrite') {
 }
 
 if (mess[MS_LOG] !== null) {  // добавляем в MQTT метку времени и топик (одно и тоже для всех сообщений, добавляем здесь, чтобы не дублировать это везде)
-  mess[MS_LOG].topic = `${context.get('tag')}log`;
+  mess[MS_LOG].topic = `${context.get('log')}`;
   mess[MS_LOG].payload.time = Date.now();
 }
 
