@@ -13,13 +13,13 @@ let mess = {
   devname: env.get('dev_name'),
   startDelay: env.get('start_delay(ms)'),
   payload: [{
-    reg: 99,
+    reg: 100,
     count: 1,
     id: 'bitMask_1',
     type: 'bitArrWide',
     signalsArr: signals1,
   }, {
-    reg: 100,
+    reg: 99,
     count: 1,
     id: 'bitMask_2',
     type: 'bitArrWide',
