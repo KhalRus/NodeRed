@@ -9,13 +9,14 @@ const MS_LOG = 0;
 const MS_DELAY = 1;
 const MS_TU = 2;
 
-const tag = context.get('tag');  // nasosn2/Zdv_1/
-const topic = msg.topic.startsWith(tag) ? msg.topic.slice(context.get('tagLength')) : msg.topic;  // удаляем путь из топика: nasosn2/Zdv_1/toOpen -> toOpen
-const val = msg.payload;
+const tag = context.get('tag');     // Nasosn2/Zdv_X/
+const topic = msg.topic.startsWith(tag) ? msg.topic.slice(context.get('tagLength')) : msg.topic;  // удаляем путь из топика: Nasosn2/Zdv_X/toOpen -> toOpen
+const val = ((msg.payload === 'true') || (msg.payload === true));
 
 const state = context.get('state');         // текущее состояние задвижки
 let knOpen = context.get('knOpen');         // концевик открытия
 let knClose = context.get('knClose');       // концевик закрытия
+let linkOn = context.get('linkOn');
 
 const OPEN = 0;  // константы состояния задвижки
 const TO_OPEN = 1;
@@ -26,19 +27,41 @@ const MIDDLE = 5;
 const strState = ['Открыта', 'Открывается', 'Авария', 'Закрыта', 'Закрывается', 'В промежутке'];
 
 switch (topic) {
-  case 'linkOn':      // наличие связи с модулями ввода-вывода
-    if (val) {
-      context.set('linkOn', true);
-    } else {
-      context.set('linkOn', false);
-      context.set('state', ERROR);  // устанавливаем статус аварии
+  case env.get('link_tu'):  // статус связи с модулем вывода (ТУ)
+    context.set('linkTu', val);
 
+    if (linkOn != (val && context.get('linkState'))) {  // если состояние связи изменилось
+      linkOn = !linkOn;
       mess[MS_LOG].push({
         payload: {
-          str: `Отсутствует связь с задвижкой!`,
-          type: ERROR,
+          str: linkOn ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна!`,
+          type: linkOn ? INFO : ERROR,
         }
       });
+
+      context.set('linkOn', linkOn);
+      if (!linkOn) {
+        context.set('state', ERROR);
+      }
+    }
+    break;
+
+  case env.get('link_state'):  // статус связи с модулем ввода (DI)
+    context.set('linkState', val);
+
+    if (linkOn != (val && context.get('linkTu'))) {  // если состояние связи изменилось
+      linkOn = !linkOn;
+      mess[MS_LOG].push({
+        payload: {
+          str: linkOn ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна!`,
+          type: linkOn ? INFO : ERROR,
+        }
+      });
+
+      context.set('linkOn', linkOn);
+      if (!linkOn) {
+        context.set('state', ERROR);
+      }
     }
     break;
 
@@ -227,7 +250,7 @@ switch (topic) {
           }
         });
 
-      } else if (!context.get('linkOn')) {
+      } else if (!linkOn) {
         mess[MS_LOG].push({
           payload: {
             str: `Отсутствует связь с задвижкой!`,
@@ -291,7 +314,7 @@ switch (topic) {
     }
     break;
 
-  case 'knOpen':      // изменилось состояние концевика
+  case 'open':      // изменилось состояние концевика
     knOpen = val;
     context.set('knOpen', val);
 
@@ -341,7 +364,7 @@ switch (topic) {
     }
     break;
 
-  case 'knClose':     // изменилось состояние концевика
+  case 'close':     // изменилось состояние концевика
     knClose = val;
     context.set('knClose', val);
 
@@ -394,6 +417,24 @@ switch (topic) {
   case 'log':         // сообщение предназначено для журнала, ничего не делаем
     break;
 
+  case 'tuClose':
+    mess[MS_LOG].push({
+      payload: {
+        str: val ? `Реле закрытия Включено!` : `Реле закрытия Отключено!`,
+        type: INFO,
+      }
+    });
+    break;
+
+  case 'tuOpen':
+    mess[MS_LOG].push({
+      payload: {
+        str: val ? `Реле открытия Включено!` : `Реле открытия Отключено!`,
+        type: INFO,
+      }
+    });
+    break;
+
   default:
     mess[MS_LOG].push({
       payload: {
@@ -404,8 +445,17 @@ switch (topic) {
 }
 
 if (context.get('state') != state) {  // статус задвижки изменился
+  let color = 'green';
+
+  if (!linkOn) {                                // нет связи - цвет индикатора красный
+    color = 'red';
+
+  } else if (context.get('state') == ERROR) {   // авария задвижки, но связь есть - цвет индикатора желтый
+    color = 'yellow';
+  }
+
   node.status({
-    fill: context.get('linkOn') ? 'green' : 'red',
+    fill: color,
     shape: 'dot',
     text: `статус: ${strState[context.get('state')]}`,
   });
@@ -416,7 +466,7 @@ if (mess[MS_LOG].length == 0) { // нет сообщений MQTT для пер�
 
 } else { // добавляем в сообщения MQTT метку времени и топик (одно и тоже для всех сообщений, добавляем здесь, чтобы не дублировать это везде)
   mess[MS_LOG].forEach(el => {
-    el.topic = `${tag}/log`;
+    el.topic = `${tag}log`;
     el.payload.time = Date.now();
   });
 }
