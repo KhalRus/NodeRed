@@ -91,13 +91,17 @@ if (msg.payload == 'change') {  // произошла смена вкладки
           arrToTable[j++] = makeTableStr(arrLog[i]);
         }
       }
-      return [{payload: arrToTable}, null];  // запись всей таблицы, в файл ничего
+      return [{ payload: arrToTable }, null];  // запись всей таблицы, в файл ничего
     }
   }
 
 } else if (msg.payload.str == 'logName') {  // при запуске все модули передают свои наименования для лога
   objects[msg.payload.id] = msg.payload.logName;
   context.set('objects', objects);
+
+} else if (msg.payload.str == 'clearTable') {  // очистка журнала
+  context.set('currLog', -1);
+  return [{ payload: [] }, null];
 
 } else {        // пришло сообщение в журнал
   let reload = false;
