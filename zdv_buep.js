@@ -30,7 +30,7 @@ switch (topic) {
   case env.get('link_tu'):  // статус связи с модулем вывода (ТУ)
     context.set('linkTu', val);
 
-    if (linkOn != (val && context.get('linkState'))) {  // если состояние связи изменилось
+    if (linkOn != (context.get('linkTu') && context.get('linkState'))) {  // если состояние связи изменилось
       linkOn = !linkOn;
       mess[MS_LOG].push({
         payload: {
@@ -42,6 +42,12 @@ switch (topic) {
       context.set('linkOn', linkOn);
       if (!linkOn) {
         context.set('state', ERROR);
+
+      } else {              // автоматически деблокируем аварию по связи
+        mess[MS_TU] = {
+          topic: `${tag}deblock`,
+          payload: true,
+        };
       }
     }
     break;
@@ -49,7 +55,7 @@ switch (topic) {
   case env.get('link_state'):  // статус связи с модулем ввода (DI)
     context.set('linkState', val);
 
-    if (linkOn != (val && context.get('linkTu'))) {  // если состояние связи изменилось
+    if (linkOn != (context.get('linkTu') && context.get('linkState'))) {  // если состояние связи изменилось
       linkOn = !linkOn;
       mess[MS_LOG].push({
         payload: {
@@ -61,6 +67,12 @@ switch (topic) {
       context.set('linkOn', linkOn);
       if (!linkOn) {
         context.set('state', ERROR);
+
+      } else {              // автоматически деблокируем аварию по связи
+        mess[MS_TU] = {
+          topic: `${tag}deblock`,
+          payload: true,
+        };
       }
     }
     break;
@@ -288,14 +300,14 @@ switch (topic) {
         }
 
         // если требуемое состояние задвижки отличается от текущего
-        if ((context.get('fixState') == OPEN) && !knOpen) {
+        if ((context.get('fixState') === OPEN) && !knOpen) {
           mess[MS_DELAY] = {  // подаем на открытие с задержкой
             topic: `toOpen`,
             payload: true,
             delay: DELAY_DEBLOCK,
           };
 
-        } else if ((context.get('fixState') == CLOSE) && !knClose) {
+        } else if ((context.get('fixState') === CLOSE) && !knClose) {
           mess[MS_DELAY] = {
             topic: `toClose`,
             payload: true,
@@ -415,6 +427,7 @@ switch (topic) {
     break;
 
   case 'log':         // сообщение предназначено для журнала, ничего не делаем
+  case 'state':       // сообщение изменения статуса задвижки, ничего не делаем
     break;
 
   case 'tuClose':
@@ -447,6 +460,12 @@ switch (topic) {
 if (context.get('state') != state) {  // статус задвижки изменился
   let color = 'green';
 
+  mess[MS_LOG].push({              // сообщение MQTT статус задвижки
+    payload: context.get('state'),
+    topic: `${tag}state`,
+    retain: true,
+  });
+
   if (!linkOn) {                                // нет связи - цвет индикатора красный
     color = 'red';
 
@@ -466,8 +485,10 @@ if (mess[MS_LOG].length == 0) { // нет сообщений MQTT для пер�
 
 } else { // добавляем в сообщения MQTT метку времени и топик (одно и тоже для всех сообщений, добавляем здесь, чтобы не дублировать это везде)
   mess[MS_LOG].forEach(el => {
-    el.topic = `${tag}log`;
-    el.payload.time = Date.now();
+    if (!el.topic) {    // сообщения в лог, идут без топика, для остальных не добавляем ничего
+      el.topic = `${tag}log`;
+      el.payload.time = Date.now();
+    }
   });
 }
 
