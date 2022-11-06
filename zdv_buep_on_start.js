@@ -1,6 +1,6 @@
-let st = env.get('Zdv');                      // Nasosn2/Zdv_/+
-context.set('tag', st.slice(0, -1));          // Nasosn2/Zdv_/
-context.set('tagLength', st.length - 1);
+const tag = env.get('Zdv').slice(0, -1);      // Nasosn2/Zdv_/
+context.set('tag', tag);
+context.set('tagLength', tag.length);
 
 context.set('state', 5);  // MIDDLE
 context.set('linkOn', true);  // связь вначале есть и общая и по модулям
@@ -15,8 +15,14 @@ let logName = {    // Имя устройства в журнале (объек�
     id: env.get('dev_name'),
     logName: env.get('log_name'),
   },
-  topic: `${context.get('tag')}log`,
+  topic: `${tag}log`,
   retain: true,
 };
 
-node.send([logName, null, null]);
+let dist = {                      // сообщение MQTT, задвижка всегда в дистанции
+  payload: true,
+  topic: `${tag}dist`,
+  retain: true,
+};
+
+node.send([[logName, dist], null, null]);
