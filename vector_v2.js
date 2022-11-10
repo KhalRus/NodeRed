@@ -39,41 +39,39 @@ switch (msg.topic) {
     mess[MS_MQTT] = [{
       payload: msg.payload,
       topic: `${tag}linkOn`,
+      retain: true,
     }, {
+
       payload: {
+        str: msg.payload ? 'Модуль на связи!' : 'Связь с модулем потеряна!',
+        type: msg.payload ? INFO : ERROR,
         time: Date.now(),
       },
       topic: `${tag}log`,
     }];
 
-    if (msg.payload) {
-      node.status({ fill: 'green', shape: 'dot', text: `connected` });
-      mess[MS_MQTT][1].payload.str = 'Модуль на связи!';
-      mess[MS_MQTT][1].payload.type = INFO;
-
-    } else {
-      node.status({ fill: 'red', shape: 'dot', text: 'disconnected' });
-      mess[MS_MQTT][1].payload.str = 'Связь с модулем потеряна!';
-      mess[MS_MQTT][1].payload.type = ERROR;
-    }
+      node.status({
+        fill: msg.payload ? 'green' : 'red',
+        shape: 'dot',
+        text: msg.payload ? `connected` : 'disconnected',
+      });
     break;
 
   case 'linkError':
     mess[MS_MQTT] = {
       payload: {
         str: `Количество ошибок связи с модулем: ${msg.payload}`,
+        type: (msg.payload > 0) ? ALERT : INFO,
         time: Date.now(),
       },
       topic: `${tag}log`,
     };
-    if (msg.payload > 0) {   // кол-во ошибок больше 0
-      mess[MS_MQTT].payload.type = ALERT;
-      node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` });
 
-    } else if (msg.payload == 0) {
-      mess[MS_MQTT].payload.type = INFO;
-      node.status({ fill: 'green', shape: 'dot', text: `connected` });
-    }
+    node.status({
+      fill: (msg.payload > 0) ? 'yellow' : 'green',
+      shape: (msg.payload > 0) ? 'ring' : 'dot',
+      text: (msg.payload > 0) ? `err: ${msg.payload}` : `connected`,
+    });
     break;
 
   default:
