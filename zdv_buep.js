@@ -24,7 +24,7 @@ const TO_OPEN = 1;
 const CLOSE = 3;
 const TO_CLOSE = 4;
 const MIDDLE = 5;
-const strState = ['Открыта', 'Открывается', 'Авария', 'Закрыта', 'Закрывается', 'В промежутке'];
+const strState = ['Открыта', 'Открывается', 'Авария', 'Закрыта', 'Закрывается', 'Промежуток'];
 
 switch (topic) {
   case env.get('link_tu'):  // статус связи с модулем вывода (ТУ)
