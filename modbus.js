@@ -236,7 +236,7 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
           mess[MS_FLOW].push({
             topic: 'linkOn',
             payload: true,
-          });-
+          });
           context.set('errorsCount', 0);  // обнуляем ошибки чтения
           context.set('linkOn', true);
         }
