@@ -37,7 +37,7 @@ let logName = {    // Имя устройства в журнале (объек�
     id: env.get('dev_name'),
     logName: env.get('log_name'),
   },
-  topic: `${log}`,
+  topic: log,
   retain: true,
 }
 

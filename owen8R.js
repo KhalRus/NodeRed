@@ -8,58 +8,60 @@ const MS_LOG = 1;
 const MS_MQTT = 2;
 
 const topic = msg.topic;
+const val = msg.payload;
 const state = context.get('state');
 
 if (topic == 'okWrite') {
   mess[MS_LOG] = {
     payload: {
-      str: `Команда записана успешно: ${msg.payload}`,
+      str: `Команда записана успешно: ${val}`,
       type: INFO,
     },
   };
 
 } else if (topic == 'errorWrite') {
-  node.status({ fill: 'yellow', shape: 'ring', text: `err - ${msg.payload}` });
+  node.status({ fill: 'yellow', shape: 'ring', text: `err - ${val}` });
   mess[MS_LOG] = {
     payload: {
-      str: `Ошибка записи команды: ${msg.payload}`,
+      str: `Ошибка записи команды: ${val}`,
       type: ERROR,
     },
   };
 
 } else if (topic == 'linkOn') {
   mess[MS_MQTT] = {
-    payload: msg.payload,
+    payload: val,
     topic: `${context.get('tag')}linkOn`,
+    retain: true,
   };
 
   mess[MS_LOG] = {
     payload: {
-      str: msg.payload ? 'Модуль на связи!' : 'Связь с модулем потеряна!',
-      type: msg.payload ? INFO : ERROR,
+      str: val ? 'Модуль на связи!' : 'Связь с модулем потеряна!',
+      type: val ? INFO : ERROR,
     },
   };
-  msg.payload ? node.status({ fill: 'green', shape: 'dot', text: state }) : node.status({ fill: 'red', shape: 'dot', text: state });
+  val ? node.status({ fill: 'green', shape: 'dot', text: state }) : node.status({ fill: 'red', shape: 'dot', text: state });
 
 } else if (topic == 'linkError') {
   mess[MS_LOG] = {
     payload: {
-      str: `Количество ошибок связи с модулем: ${msg.payload}`,
-      type: (msg.payload > 0) ? ALERT : INFO,
+      str: `Количество ошибок связи с модулем: ${val}`,
+      type: (val > 0) ? ALERT : INFO,
     },
   };
-  (msg.payload > 0) ? node.status({ fill: 'yellow', shape: 'ring', text: `err: ${msg.payload}` }) : node.status({ fill: 'green', shape: 'dot', text: state });
+  (val > 0) ? node.status({ fill: 'yellow', shape: 'ring', text: `err: ${val}` }) : node.status({ fill: 'green', shape: 'dot', text: state });
 
 } else if (topic == 'errorUnknown') {
   mess[MS_LOG] = {
     payload: {
-      str: `error unknown: ${msg.payload}`,
+      str: `error unknown: ${val}`,
       type: ERROR,
     },
   };
 
 } else if (topic == 'state') {  // обновился статус выходов
-  let arr = msg.payload.slice(0, 8).reverse();
+  let arr = val.slice(0, 8).reverse();
   let stateNew = `${arr.slice(0, 4).join('')} ${arr.slice(4, 8).join('')}`;
   node.status({ fill: 'green', shape: 'dot', text: stateNew });
   context.set('state', stateNew);
@@ -69,7 +71,7 @@ if (topic == 'okWrite') {
 
   if (ind != -1) {
     mess[MS_TU] = {
-      payload: [(msg.payload === true) || (msg.payload == 'true')],
+      payload: [(val === true) || (val == 'true')],
       topic: 'writeVar',
       reg: ind,
       signal: topic,
@@ -77,7 +79,7 @@ if (topic == 'okWrite') {
 
     mess[MS_LOG] = {
       payload: {
-        str: `Подана команда ТУ: ${topic} - ${msg.payload}`,
+        str: `Подана команда ТУ: ${topic} - ${val}`,
         type: INFO,
       },
     };
@@ -85,7 +87,7 @@ if (topic == 'okWrite') {
   } else {  // команда в массиве команд не найдена
     mess[MS_LOG] = {
       payload: {
-        str: `Неправильная команда ТУ: ${topic} - ${msg.payload}`,
+        str: `Неправильная команда ТУ: ${topic} - ${val}`,
         type: ERROR,
       },
     };
