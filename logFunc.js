@@ -119,7 +119,7 @@ if (msg.payload == 'change') {  // произошла смена вкладки
   context.get('arrLog')[n] = msg;
   context.set('currLog', n);
   let mess = makeTableStr(msg);
-  let strLog = `${mess.date}; ${mess.logStr}; ${mess.place}; ${mess.object}; ${mess.message}`;
+  let strLog = `${mess.date};${mess.logStr};${mess.place};${mess.object};${mess.message}`;
 
   return [{
     payload: {
