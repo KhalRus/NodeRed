@@ -19,7 +19,7 @@ switch (topic) {
     mess[MS_LOG].push({
       payload: val,
       topic: `${tag}freq`,
-    });  
+    });
     break;
 
   case 'pin1':  // обработка давления на входе
@@ -125,23 +125,21 @@ switch (topic) {
     break;
 
   case 'linkOn':
-    if (val) {
+    if (val != context.get('linkOn')) {  // чтобы повторно не обрабатывать свои сообщ. в MQTT
+      context.set('linkOn', val);
       mess[MS_LOG].push({
         payload: {
-          str: `Связь с насосом (ПЧ) установлена`,
-          type: INFO,
-        }
-      });
-      node.status({ fill: 'green', shape: 'dot', text: `status: ${context.get('status')}` });
+          str: val ? `Связь с насосом (ПЧ) установлена` : `Связь с насосом (ПЧ) отсутствует`,
+          type: val ? INFO : ERROR,
+        },
+      }, {
 
-    } else {
-      mess[MS_LOG].push({
-        payload: {
-          str: `Связь с насосом (ПЧ) отсутствует`,
-          type: ERROR,
-        }
+        payload: val,
+        topic: `${tag}linkOn`,
+        retain: true,
       });
-      node.status({ fill: 'red', shape: 'dot', text: 'disconnected' });
+
+      node.status({ fill: val ? 'green' : 'red', shape: 'dot', text: context.get('status') });
     }
     break;
 
@@ -151,7 +149,7 @@ switch (topic) {
 
   case 'status':
     context.set('status', val);
-    node.status({ fill: 'green', shape: 'dot', text: `status: ${val}` });  // вывод слова состояния ПЧ в статусе ноды
+    node.status({ fill: 'green', shape: 'dot', text: val });  // вывод слова состояния ПЧ в статусе ноды
   break;
 
   case 'setFreq':
@@ -257,24 +255,13 @@ switch (topic) {
     break;
 
   case 'linkError':
-    if (val == 0) {  // ошибок нет
-      node.status({ fill: 'green', shape: 'dot', text: `status: ${context.get('status')}` });
-      mess[MS_LOG].push({
-        payload: {
-          str: `Количество ошибок связи с ПЧ: 0`,
-          type: INFO,
-        }
-      });
-
-    } else {
-      mess[MS_LOG].push({
-        payload: {
-          str: `Количество ошибок связи с ПЧ: ${val}`,
-          type: ALERT,
-        }
-      });
-      node.status({ fill: 'yellow', shape: 'ring', text: `err: ${val}` });
-    }
+    mess[MS_LOG].push({
+      payload: {
+        str: `Количество ошибок связи с ПЧ: ${val}`,
+        type: (val > 0) ? ALERT : INFO,
+      },
+    });
+    (val > 0) ? node.status({ fill: 'yellow', shape: 'ring', text: `err: ${val}` }) : node.status({ fill: 'green', shape: 'dot', text: context.get('status') });
     break;
 
   case 'okWrite':
@@ -294,7 +281,7 @@ switch (topic) {
       }
     });
     break;
-  
+
   default:
     mess[MS_LOG].push({
       payload: {

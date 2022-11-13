@@ -11,21 +11,21 @@ switch (msg.topic) {
     break;
 
   case 'status':  // раскладка статуса и передача сообщений выше
-    let arr = msg.payload;
+    let a = msg.payload;
     mess[MS_FLOW] = [{
-      payload: arr[11] == 1,  // ПЧ включен
+      payload: a[11] == 1,  // ПЧ включен
       topic: 'On',
     }, {
-      payload: arr[9] == 1,  // ПЧ в автомате (в ДУ)
+      payload: a[9] == 1,  // ПЧ в автомате (в ДУ)
       topic: 'Dist',
     }, {
-      payload: arr[3] == 1,  // ПЧ авария
+      payload: a[3] == 1,  // ПЧ авария
       topic: 'PchError',
     }, {
-      payload: arr[4] == 1,  // ПЧ предупреждение
+      payload: a[4] == 1,  // ПЧ предупреждение
       topic: 'PchAlert',
     }, {
-      payload: arr.reverse().join(''),  // Статус, для вывода состояния в статусе ноды
+      payload: `${a[15]}${a[14]}${a[13]}${a[12]} ${a[11]}${a[10]}${a[9]}${a[8]} ${a[7]}${a[6]}${a[5]}${a[4]} ${a[3]}${a[2]}${a[1]}${a[0]}`,  // Статус, для вывода состояния в статусе ноды
       topic: 'status',
     }];
     break;
