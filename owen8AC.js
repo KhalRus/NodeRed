@@ -12,8 +12,12 @@ let mess = [null, null]; // выходы функции, 0 - в модбас, 1 
 const MS_MQTT = 1;
 
 if ( context.get('signals').includes(topic) ) { // пришел сигнал AI, отправляем MQTT
+  let k = +val;
+  if (k > 65000) {  // отрицательные вызывают переполнение
+    k -= 65536;
+  }
   mess[MS_MQTT] = [{
-    payload: val / koef,
+    payload: k / koef,
     topic: `${env.get('place')}/${topic}`,
   }];
 
