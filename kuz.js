@@ -19,15 +19,18 @@ const log = context.get('log');
 const logZdv1 = context.get('logZdv1');
 const logZdv2 = context.get('logZdv2');
 
+const val = msg.payload;
+const topic = msg.topic;
+
 let mess = [null, []]; // выходы функции, 0 - в модбас, 1 - сообщение в журнал, MQTT
 const MS_TU = 0;
 const MS_LOG = 1;
 
 let linkError;  // кол-во ошибок чтения данных модбас
 
-switch (msg.topic) {
+switch (topic) {
   case 'stateKuz':
-    let arr = msg.payload;
+    let arr = val;
     let newStateZdv1 = arr[0] + arr[1] * 2 + arr[2] * 4 + arr[3] * 8;
     if (arr[4] == 0) newStateZdv1 += 100;  // 0 означает местный режим, 1 - дистанция
 
@@ -116,7 +119,7 @@ switch (msg.topic) {
             payload: 2,
             topic: 'writeVar',
             reg: 0,
-            signal: msg.topic.slice(placeLength),
+            signal: topic.slice(placeLength),
           };
 
         } else if (context.get('fixStateZdv1') === CLOSE) {
@@ -132,7 +135,7 @@ switch (msg.topic) {
             payload: 1,
             topic: 'writeVar',
             reg: 0,
-            signal: msg.topic.slice(placeLength),
+            signal: topic.slice(placeLength),
           };
         }
       }
@@ -190,7 +193,7 @@ switch (msg.topic) {
             payload: 2,
             topic: 'writeVar',
             reg: 3,
-            signal: msg.topic.slice(placeLength),
+            signal: topic.slice(placeLength),
           };
 
         } else if (context.get('fixStateZdv2') === CLOSE) {
@@ -206,7 +209,7 @@ switch (msg.topic) {
             payload: 1,
             topic: 'writeVar',
             reg: 3,
-            signal: msg.topic.slice(placeLength),
+            signal: topic.slice(placeLength),
           };
         }
       }
@@ -246,7 +249,7 @@ switch (msg.topic) {
         payload: 2,
         topic: 'writeVar',
         reg: 0,
-        signal: msg.topic.slice(placeLength),
+        signal: topic.slice(placeLength),
       };
     }
     break;
@@ -284,7 +287,7 @@ switch (msg.topic) {
         payload: 2,
         topic: 'writeVar',
         reg: 3,
-        signal: msg.topic.slice(placeLength),
+        signal: topic.slice(placeLength),
       };
     }
     break;
@@ -322,7 +325,7 @@ switch (msg.topic) {
         payload: 1,
         topic: 'writeVar',
         reg: 0,
-        signal: msg.topic.slice(placeLength),
+        signal: topic.slice(placeLength),
       };
     }
     break;
@@ -360,7 +363,7 @@ switch (msg.topic) {
         payload: 1,
         topic: 'writeVar',
         reg: 3,
-        signal: msg.topic.slice(placeLength),
+        signal: topic.slice(placeLength),
       };
     }
     break;
@@ -368,7 +371,7 @@ switch (msg.topic) {
   case 'okWrite':
     mess[MS_LOG].push({
       payload: {
-        str: `Команда записана успешно: ${msg.payload}`,
+        str: `Команда записана успешно: ${val}`,
         type: INFO,
       },
       topic: log,
@@ -378,41 +381,54 @@ switch (msg.topic) {
   case 'errorWrite':
     mess[MS_LOG].push({
       payload: {
-        str: `Ошибка записи команды: ${msg.payload}`,
+        str: `Ошибка записи команды: ${val}`,
         type: ERROR,
       },
       topic: log,
     });
 
-    let strZ = msg.payload.split('/')[0];  // по какой здв пришла авария (dev_name), по ней выставляем статус аварии
+    let strZ = val.split('/')[0];  // по какой здв пришла авария (dev_name), по ней выставляем статус аварии
     (strZ == env.get('Zdv_1_dev_name')) ? context.set('stateZdv1', ERROR) : context.set('stateZdv2', ERROR);
     break;
 
   case 'linkOn':
-    mess[MS_LOG].push({
-      payload: msg.payload,
+    mess[MS_LOG].push({                   // переменная связи КУЗ
+      payload: val,
+      retain: true,
       topic: context.get('tagLink'),
+    });
+
+    mess[MS_LOG].push({                  // переменная связи задвижки 1
+      payload: val,
+      retain: true,
+      topic: context.get('tagLinkZdv1'),
     });
 
     mess[MS_LOG].push({
       payload: {
-        str: msg.payload ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна. Авария!`,
-        type: msg.payload ? INFO : ERROR,
+        str: val ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна. Авария!`,
+        type: val ? INFO : ERROR,
       },
       topic: logZdv1,
     });
 
     if (haveZdv2) {
+      mess[MS_LOG].push({                  // переменная связи задвижки 2
+        payload: val,
+        topic: context.get('tagLinkZdv2'),
+        retain: true,
+      });
+
       mess[MS_LOG].push({
         payload: {
-          str: msg.payload ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна. Авария!`,
-          type: msg.payload ? INFO : ERROR,
+          str: val ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна. Авария!`,
+          type: val ? INFO : ERROR,
         },
         topic: logZdv2,
       });
     }
 
-    if (msg.payload) {                                // связь восстановилась, убираем аварию, пересчитываем статус
+    if (val) {                                // связь восстановилась, убираем аварию, пересчитываем статус
       context.set('linkOn', true);
 
       if (stateZdv1 == ERROR) {
@@ -451,23 +467,25 @@ switch (msg.topic) {
   case 'linkError':
     mess[MS_LOG].push({
       payload: {
-        str: `Количество ошибок связи с КУЗ: ${msg.payload}`,
-        type: (msg.payload > 0) ? ALERT : INFO,
+        str: `Количество ошибок связи с КУЗ: ${val}`,
+        type: (val > 0) ? ALERT : INFO,
       },
       topic: log,
     });
-    linkError = msg.payload;
+    linkError = val;      // для вывода в статусе ноды
     break;
 
   case 'errorUnknown':
     mess[MS_LOG].push({
       payload: {
-        str: `error unknown: ${msg.payload}`,
+        str: `error unknown: ${val}`,
         type: ERROR,
       },
       topic: log,
     });
     break;
+
+  //  нет обработки default, так как много сообщений по задвижкам (log, state, linkOn) которые не нужно обрабатывать
 }
 
 const stz1 = context.get('stateZdv1');
@@ -476,16 +494,16 @@ const stz2 = context.get('stateZdv2');
 if (stateZdv1 != stz1) {            // отправляем измененный статус задвижки
   mess[MS_LOG].push({
     payload: stz1,
-    topic: context.get('stateZdv1MQTT'),
     retain: true,
+    topic: context.get('stateZdv1MQTT'),
   });
 }
 
 if (stateZdv2 != stz2) {
   mess[MS_LOG].push({
     payload: stz2,
-    topic: context.get('stateZdv2MQTT'),
     retain: true,
+    topic: context.get('stateZdv2MQTT'),
   });
 }
 
