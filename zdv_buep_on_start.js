@@ -3,7 +3,7 @@ context.set('tag', tag);
 context.set('tagLength', tag.length);
 
 context.set('state', 5);  // MIDDLE
-context.set('linkOn', true);  // связь вначале есть и общая и по модулям
+context.set('linkOn', false);  // связь вначале есть по модулям, общая false, чтобы вначале прошло сообщение linkOn
 context.set('linkTu', true);
 context.set('linkState', true);
 context.set('knOpen', false);         // концевик открытия
@@ -15,14 +15,8 @@ let logName = {    // Имя устройства в журнале (объек�
     id: env.get('dev_name'),
     logName: env.get('log_name'),
   },
+  retain: true,
   topic: `${tag}log`,
-  retain: true,
 };
 
-let dist = {                      // сообщение MQTT, задвижка всегда в дистанции
-  payload: true,
-  topic: `${tag}dist`,
-  retain: true,
-};
-
-node.send([[logName, dist], null, null]);
+node.send([logName, null, null]);

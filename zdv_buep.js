@@ -33,6 +33,12 @@ switch (topic) {
     if (linkOn != (context.get('linkTu') && context.get('linkState'))) {  // если состояние связи изменилось
       linkOn = !linkOn;
       mess[MS_LOG].push({
+        payload: linkOn,
+        retain: true,
+        topic: `${tag}linkOn`,
+      });
+
+      mess[MS_LOG].push({
         payload: {
           str: linkOn ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна!`,
           type: linkOn ? INFO : ERROR,
@@ -57,6 +63,12 @@ switch (topic) {
 
     if (linkOn != (context.get('linkTu') && context.get('linkState'))) {  // если состояние связи изменилось
       linkOn = !linkOn;
+      mess[MS_LOG].push({
+        payload: linkOn,
+        retain: true,
+        topic: `${tag}linkOn`,
+      });
+
       mess[MS_LOG].push({
         payload: {
           str: linkOn ? `Связь с задвижкой восстановлена!` : `Связь с задвижкой потеряна!`,
@@ -427,6 +439,7 @@ switch (topic) {
     break;
 
   case 'log':         // сообщение предназначено для журнала, ничего не делаем
+  case 'linkOn':      // сообщение изменения статуса связи задвижки, ничего не делаем
   case 'state':       // сообщение изменения статуса задвижки, ничего не делаем
     break;
 
@@ -462,8 +475,8 @@ if (context.get('state') != state) {  // статус задвижки изме�
 
   mess[MS_LOG].push({              // сообщение MQTT статус задвижки
     payload: context.get('state'),
-    topic: `${tag}state`,
     retain: true,
+    topic: `${tag}state`,
   });
 
   if (!linkOn) {                                // нет связи - цвет индикатора красный
@@ -476,7 +489,7 @@ if (context.get('state') != state) {  // статус задвижки изме�
   node.status({
     fill: color,
     shape: 'dot',
-    text: `статус: ${strState[context.get('state')]}`,
+    text: strState[context.get('state')],
   });
 }
 
