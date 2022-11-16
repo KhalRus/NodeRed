@@ -8,13 +8,10 @@ const MS_TU = 0;
 const MS_LOG = 1;
 
 let tag = context.get('tag');
-let topic = msg.topic.startsWith(tag) ? msg.topic.slice(context.get('tagLength')) : msg.topic;  // удаляем путь из топика, от последней /
+let topic = msg.topic;
 let val = msg.payload;
 
 switch (topic) {
-  case 'log':     // сообщения для журнала
-    break;
-
   case 'freq':     // частота с ПЧ
     mess[MS_LOG].push({
       payload: val,
@@ -83,8 +80,8 @@ switch (topic) {
       }
     });
 
-    if (!context.get('pumpOn') && context.get('linkOn') && (context.get('temp') < env.get('max_Temp')) && (context.get('pin1') > env.get('min_P_in')) &&
-      (context.get('pin2') > env.get('min_P_in')) && context.get('Dist') && !context.get('errorNA')) {  // условия пуска насоса
+    if (!context.get('pumpOn') && context.get('linkOn') && (context.get('pin1') > env.get('min_P_in')) && (context.get('pin2') > env.get('min_P_in')) &&
+      context.get('Dist') && !context.get('errorNA') && (context.get('temp') < env.get('max_Temp'))) {  // условия пуска насоса //
       mess[MS_TU] = {
         topic: `${TU_Prefix}tuStart`,
         payload: true,
@@ -125,22 +122,20 @@ switch (topic) {
     break;
 
   case 'linkOn':
-    if (val != context.get('linkOn')) {  // чтобы повторно не обрабатывать свои сообщ. в MQTT
-      context.set('linkOn', val);
-      mess[MS_LOG].push({
-        payload: {
-          str: val ? `Связь с насосом (ПЧ) установлена` : `Связь с насосом (ПЧ) отсутствует`,
-          type: val ? INFO : ERROR,
-        },
-      }, {
+    context.set('linkOn', val);
+    mess[MS_LOG].push({
+      payload: {
+        str: val ? `Связь с насосом (ПЧ) установлена` : `Связь с насосом (ПЧ) отсутствует`,
+        type: val ? INFO : ERROR,
+      },
+    }, {
 
-        payload: val,
-        topic: `${tag}linkOn`,
-        retain: true,
-      });
+      payload: val,
+      retain: true,
+      topic: `${tag}linkOn`,
+    });
 
-      node.status({ fill: val ? 'green' : 'red', shape: 'dot', text: context.get('status') });
-    }
+    node.status({ fill: val ? 'green' : 'red', shape: 'dot', text: context.get('status') });
     break;
 
   case 'changeFreq':
@@ -169,6 +164,11 @@ switch (topic) {
   case 'On':
     if (context.get('pumpOn') != val) {  // значение изменилось
       context.set('pumpOn', val);
+      mess[MS_LOG].push({
+        payload: val,
+        topic: `${tag}on`,
+      });
+
       if (val) {
         mess[MS_LOG].push({
           payload: {
@@ -191,6 +191,11 @@ switch (topic) {
   case 'Dist':
     if (context.get('Dist') != val) {
       context.set('Dist', val);
+      mess[MS_LOG].push({
+        payload: val,
+        topic: `${tag}dist`,
+      });
+
       if (val) {
         mess[MS_LOG].push({
           payload: {
@@ -213,6 +218,11 @@ switch (topic) {
   case 'PchError':
     if (context.get('errorNA') != val) {
       context.set('errorNA', val);
+      mess[MS_LOG].push({
+        payload: val,
+        topic: `${tag}error`,
+      });
+
       if (val) {
         mess[MS_LOG].push({
           payload: {
@@ -235,6 +245,11 @@ switch (topic) {
   case 'PchAlert':
     if (context.get('AlertNA') != val) {
       context.set('AlertNA', val);
+      mess[MS_LOG].push({
+        payload: val,
+        topic: `${tag}alert`,
+      });
+
       if (val) {
         mess[MS_LOG].push({
           payload: {
@@ -296,8 +311,10 @@ if (mess[MS_LOG].length == 0) { // нет сообщений MQTT для пер�
 
 } else { // добавляем в сообщения MQTT метку времени и топик (одно и тоже для всех сообщений, добавляем здесь, чтобы не дублировать это везде)
   mess[MS_LOG].forEach(el => {
-    if (!el.topic) el.topic = `${tag}log`;      // если топик отсутствует, то в лог
-    el.payload.time = Date.now();
+    if (typeof(el.payload) == 'object') {    // у сообщений в лог, payload - объект
+      el.payload.time = Date.now();
+      el.topic = `${tag}log`;
+    }
   });
 }
 
