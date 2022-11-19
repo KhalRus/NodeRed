@@ -37,15 +37,16 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
   let arr = msg.payload;
   for (let i = 0; i < arr.length; i++) {
     let readObj = {
-      reg: arr[i].reg,               // регистр чтения
-      count: arr[i].count ?? 1,      // кол-во регистров чтения (по умолчанию 1)
-      id: arr[i].id,                 // имя переменной
-      type: arr[i].type ?? 'word',   // тип переменной (word - обычный регистр (по умолчанию), float - 2 регистра составляющих одну float переменную, bitArr - регистр преобразуемый в массив из 16 битов)
-      value: null,                   // значение переменной
+      reg: arr[i].reg,                  // регистр чтения
+      count: arr[i].count ?? 1,         // кол-во регистров чтения (по умолчанию 1)
+      id: arr[i].id,                    // имя переменной
+      commRead: arr[i].commRead ?? 3,   // номер операции чтения (по умолчанию 3)
+      type: arr[i].type ?? 'word',      // тип переменной (word - обычный регистр (по умолчанию), float - 2 регистра составляющих одну float переменную (floatRev - байты L и H наоборот), bitArr - регистр преобразуемый в массив из 16 битов)
+      value: null,                      // значение переменной
     };
 
     if (i == 0) readObj.first = true;  // подсчет ошибок чтения ведем по первой переменной
-    if (readObj.type == 'float') readObj.value = [null, null];  // float 2 регистра
+    if ((readObj.type == 'float') || (readObj.type == 'floatRev')) readObj.value = [null, null];  // float 2 регистра
     if (readObj.type == 'bitArrWide') readObj.signalsArr = arr[i].signalsArr;  // если расширенная битовая маска (с названиями), то записываем массив названий сигналов
 
     objRead[readObj.id] = readObj;  // все переменные для чтения хранятся в объекте objRead, ключ - имя переменной
@@ -77,7 +78,7 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
     outArr.push({
       payload: {
         value: 1,
-        'fc': 3,
+        'fc': obj.commRead,
         'unitid': modbus.addres,
         'address': obj.reg,
         'quantity': obj.count,
@@ -205,6 +206,14 @@ if ((msg.topic == 'initModbusRead') && (msg.payload.length > 0)) {    // ини�
             obj.value[0] = msg.payload[0];
             obj.value[1] = msg.payload[1];
             outVar.payload = word2ToFloat(msg.payload[1], msg.payload[0]);
+          }
+        break;
+
+        case 'floatRev':
+          if ( (obj.value[0] != msg.payload[0]) || (obj.value[1] != msg.payload[1]) ){
+            obj.value[0] = msg.payload[0];
+            obj.value[1] = msg.payload[1];
+            outVar.payload = word2ToFloat(msg.payload[0], msg.payload[1]);
           }
         break;
 
