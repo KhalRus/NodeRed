@@ -8,13 +8,13 @@ const TO_OPEN = 1;
 const CLOSE = 3;
 const TO_CLOSE = 4;
 const MIDDLE = 5;
-// const strState = ['Открыта', 'Открывается', 'Авария', 'Закрыта', 'Закрывается', 'Промежуток'];
 
 const PR_WAIT = 8;           // ожидание запуска
 const PR_ZDV_OPEN = 1;       // ожидание открытия задвижек
 const PR_NA_START = 2;       // ожидание пуска насоса
 const PR_WORK = 3;           // идет перекачка
 const PR_ZDV_CLOSE = 4;      // остановлена, ожидание закрытия задвижек
+const PR_NA_STOP = 5;        // ожидание стопа насоса
 
 let mess = [];
 let messDelay = null;
@@ -25,55 +25,63 @@ let state = context.get('status');
 
 switch (topic) {
   case 'Nasosn2/ProgrCid/rez1':
-    context.set('Rez', 1);
+    if (state == PR_WAIT) {
+      context.set('Rez', 1);
 
-    mess.push({
-      topic: 'Nasosn2/ProgrCid/bgRez1',
-      payload: 'green',
-    }, {
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/bgRez1',
+        payload: 'green',
+      }, {
 
-      topic: 'Nasosn2/ProgrCid/bgRez2',
-      payload: 'blue',
-    });
+        topic: 'Nasosn2/ProgrCid/bgRez2',
+        payload: 'blue',
+      });
+    }
     break;
 
   case 'Nasosn2/ProgrCid/rez2':
-    context.set('Rez', 2);
+    if (state == PR_WAIT) {
+      context.set('Rez', 2);
 
-    mess.push({
-      topic: 'Nasosn2/ProgrCid/bgRez1',
-      payload: 'blue',
-    }, {
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/bgRez1',
+        payload: 'blue',
+      }, {
 
-      topic: 'Nasosn2/ProgrCid/bgRez2',
-      payload: 'green',
-    });
+        topic: 'Nasosn2/ProgrCid/bgRez2',
+        payload: 'green',
+      });
+    }
     break;
 
   case 'Nasosn2/ProgrCid/na1':
-    context.set('Na', 1);
+    if (state == PR_WAIT) {
+      context.set('Na', 1);
 
-    mess.push({
-      topic: 'Nasosn2/ProgrCid/bgNa1',
-      payload: 'green',
-    }, {
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/bgNa1',
+        payload: 'green',
+      }, {
 
-      topic: 'Nasosn2/ProgrCid/bgNa2',
-      payload: 'blue',
-    });
+        topic: 'Nasosn2/ProgrCid/bgNa2',
+        payload: 'blue',
+      });
+    }
     break;
 
   case 'Nasosn2/ProgrCid/na2':
-    context.set('Na', 2);
+    if (state == PR_WAIT) {
+      context.set('Na', 2);
 
-    mess.push({
-      topic: 'Nasosn2/ProgrCid/bgNa1',
-      payload: 'blue',
-    }, {
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/bgNa1',
+        payload: 'blue',
+      }, {
 
-      topic: 'Nasosn2/ProgrCid/bgNa2',
-      payload: 'green',
-    });
+        topic: 'Nasosn2/ProgrCid/bgNa2',
+        payload: 'green',
+      });
+    }
     break;
 
   case 'Nasosn2/Zdv_4/state':
@@ -83,6 +91,12 @@ switch (topic) {
     if ((state == PR_ZDV_OPEN) && (val == OPEN)) {  // если работает программа и задвижка открылась, отправляем сообщение
       mess.push({
         topic: 'Nasosn2/ProgrCid/zdvOpen',     // сообщение в функцию об открытых задвижках
+        payload: true,
+      });
+
+    } else if ((state == PR_ZDV_CLOSE) && (val == CLOSE)) {  // если работает программа и задвижка закрылась, отправляем сообщение
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/zdvClose',     // сообщение в функцию о закрытых задвижках
         payload: true,
       });
     }
@@ -97,16 +111,28 @@ switch (topic) {
         topic: 'Nasosn2/ProgrCid/zdvOpen',     // сообщение в функцию об открытых задвижках
         payload: true,
       });
+
+    } else if ((state == PR_ZDV_CLOSE) && (val == CLOSE)) {  // если работает программа и задвижка закрылась, отправляем сообщение
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/zdvClose',     // сообщение в функцию о закрытых задвижках
+        payload: true,
+      });
     }
     break;
 
-  case 'Nasosn2/Zdv_15/state':
+  case 'Nasosn2/Zdv_17/state':
     val = +val;
-    context.set('Zdv15', val);
+    context.set('Zdv17', val);
 
     if ((state == PR_ZDV_OPEN) && (val == OPEN)) {  // если работает программа и задвижка открылась, отправляем сообщение
       mess.push({
         topic: 'Nasosn2/ProgrCid/zdvOpen',     // сообщение в функцию об открытых задвижках
+        payload: true,
+      });
+
+    } else if ((state == PR_ZDV_CLOSE) && (val == CLOSE)) {  // если работает программа и задвижка закрылась, отправляем сообщение
+      mess.push({
+        topic: 'Nasosn2/ProgrCid/zdvClose',     // сообщение в функцию о закрытых задвижках
         payload: true,
       });
     }
@@ -134,7 +160,7 @@ switch (topic) {
       let na = context.get('Na');
       let zdv4 = context.get('Zdv4');
       let zdv10 = context.get('Zdv10');
-      let zdv15 = context.get('Zdv15');
+      let zdv17 = context.get('Zdv17');
 
       if (((na == 1) && context.get('Na1err')) || ((na == 2) && context.get('Na2err'))) {
         mess.push({
@@ -152,10 +178,10 @@ switch (topic) {
         break;
       }
 
-      if (zdv15 == ERROR) {
+      if (zdv17 == ERROR) {
         mess.push({
           topic: 'Nasosn2/ProgrCid/status',
-          payload: 'Авария Здв. 15',
+          payload: 'Авария Здв. 17',
         });
         break;
       }
@@ -199,12 +225,12 @@ switch (topic) {
         state = PR_ZDV_OPEN;
       }
 
-      if (zdv15 != OPEN) {
+      if (zdv17 != OPEN) {
         mess.push({
           topic: 'Nasosn2/ProgrCid/status',
           payload: 'откр. задвижек',
         }, {
-          topic: 'Nasosn2/Zdv_15/toOpen',
+          topic: 'Nasosn2/Zdv_17/toOpen',
           payload: true,
         });
         state = PR_ZDV_OPEN;
@@ -234,18 +260,18 @@ switch (topic) {
       let na = context.get('Na');
       let zdv4 = context.get('Zdv4');
       let zdv10 = context.get('Zdv10');
-      let zdv15 = context.get('Zdv15');
+      let zdv17 = context.get('Zdv17');
       let allOpen = false;
 
-      if ( (rez == 1) && (zdv10 == OPEN) && (zdv15 == OPEN) ) {
+      if ( (rez == 1) && (zdv10 == OPEN) && (zdv17 == OPEN) ) {
         allOpen = true;
-      } else if((rez == 2) && (zdv4 == OPEN) && (zdv15 == OPEN)) {
+      } else if((rez == 2) && (zdv4 == OPEN) && (zdv17 == OPEN)) {
         allOpen = true;
       }
 
       if (allOpen) {  // задвижки открыты, запускаем насос
         mess.push({
-          topic: 'Nasosn2/ATNK_4/tuOpen',     // открываем АТНК-4
+          topic: 'Nasosn2/ATNK_6/tuOpen',     // открываем АТНК-6
           payload: true,
         }, {
 
@@ -271,31 +297,85 @@ switch (topic) {
           topic: 'error',
           payload: true,
           state: PR_NA_START,
-          delay: 10000,  // задержка 10 секунд
+          delay: 20000,  // задержка 20 секунд
         };
       }
     }
     break;
 
-  case 'Nasosn2/NA_1/on':
-    if ((state == PR_NA_START) && (!!val == true)) {
-      context.set('status', PR_WORK);
+  case 'Nasosn2/ProgrCid/zdvClose':
+    if (state == PR_ZDV_CLOSE) {  // запуск только если статус закрытия задвижек
+      let rez = context.get('Rez');
+      let zdv4 = context.get('Zdv4');
+      let zdv10 = context.get('Zdv10');
+      let zdv17 = context.get('Zdv17');
+      let allClose = false;
 
-      mess.push({
-        topic: 'Nasosn2/ProgrCid/status',
-        payload: 'идет перекачка',
-      });
+      if ((rez == 1) && (zdv10 == CLOSE) && (zdv17 == CLOSE)) {
+        allClose = true;
+
+      } else if ((rez == 2) && (zdv4 == CLOSE) && (zdv17 == CLOSE)) {
+        allClose = true;
+      }
+
+      if (allClose) {  // задвижки закрыты
+        context.set('status', PR_WAIT); // задвижки закрыты, статус ожидания
+
+        mess.push({
+          topic: 'Nasosn2/ProgrCid/status',
+          payload: 'остановлена',
+        });
+      }
     }
     break;
 
+  case 'Nasosn2/NA_1/on':
   case 'Nasosn2/NA_2/on':
-    if ((state == PR_NA_START) && (!!val == true)) {
+    if ((state == PR_NA_START) && (!!val == true)) {            // насос пущен
       context.set('status', PR_WORK);
 
       mess.push({
         topic: 'Nasosn2/ProgrCid/status',
         payload: 'идет перекачка',
       });
+
+    } else if ((state == PR_NA_STOP) && (!!val == false)) {     // насос остановлен
+      let rez = context.get('Rez');
+
+      mess.push({
+        topic: 'Nasosn2/ATNK_6/tuOpen',     // закрываем АТНК-6
+        payload: false,
+      }, {
+
+        topic: 'Nasosn2/ProgrCid/status',
+        payload: 'закрытие задвижек',
+      }, {
+
+        topic: 'Nasosn2/Zdv_17/toClose',    // закрываем задв. 17
+        payload: true,
+      });
+
+      if (rez == 1) {
+        mess.push({
+          topic: 'Nasosn2/Zdv_10/toClose',
+          payload: true,
+        });
+
+      } else if (rez == 2) {
+        mess.push({
+          topic: 'Nasosn2/Zdv_4/toClose',
+          payload: true,
+        });
+      }
+
+      messDelay = {
+        topic: 'error',
+        payload: true,
+        state: PR_ZDV_CLOSE,
+        delay: 110000,  // задержка 110 секунд, все задвижки закрываются за 90 секунд, выдержка еще 20 сек на прочее
+      };
+
+      context.set('status', PR_ZDV_CLOSE);
     }
     break;
 
@@ -304,8 +384,15 @@ switch (topic) {
       let str;
       if (state == PR_NA_START) {
         str = 'Авария пуска насоса';
+
       } else if (state == PR_ZDV_OPEN) {
         str = 'Авария открытия задвижек';
+
+      } else if (state == PR_NA_STOP) {
+        str = 'Авария остановки насоса';
+
+      } else if (state == PR_ZDV_CLOSE) {
+        str = 'Авария закрытия задвижек';
       }
 
       mess.push({
@@ -318,7 +405,7 @@ switch (topic) {
     break;
 
   case 'Nasosn2/ProgrCid/stop':
-    if (state != PR_WAIT) {
+    if (state == PR_WORK) {
       let na = context.get('Na');
 
       mess.push({                           // останавливаем программу
@@ -328,15 +415,10 @@ switch (topic) {
           type: INFO,
           time: Date.now(),
         }
-      });
-
-      mess.push({
-        topic: 'Nasosn2/ATNK_4/tuOpen',     // закрываем АТНК-4
-        payload: false,
       }, {
 
         topic: 'Nasosn2/ProgrCid/status',
-        payload: 'остановлена',
+        payload: 'остановка насоса',
       });
 
       if (na == 1) {
@@ -351,7 +433,15 @@ switch (topic) {
           payload: true,
         });
       }
-      context.set('status', PR_WAIT);
+
+      messDelay = {
+        topic: 'error',
+        payload: true,
+        state: PR_NA_STOP,
+        delay: 20000,  // задержка 20 секунд на остановку насоса
+      };
+
+      context.set('status', PR_NA_STOP);
     }
     break;
 }
